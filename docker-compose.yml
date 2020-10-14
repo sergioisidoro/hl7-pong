@@ -1,0 +1,18 @@
+version: '3.7'
+
+x-default-env: &default_env_vars
+  env_file:
+    - dev.env
+
+services:
+  pong:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "smaisidoro/hllp-pong"
+    volumes:
+      - ./app:/app
+    ports:
+      - "1337:1337"
+      - "666:666"
+    <<: *default_env_vars
