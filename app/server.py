@@ -11,7 +11,7 @@ from hl7apy.parser import parse_message
 
 def last_ditch_error_mssage(exception):
     m = Message("ACK")
-    m.msh.msh_9 = "ACK^ACK"
+    m.msh.msh_9 = "ACK^^ACK"
     m.msa.msa_1 = "AR"
     m.err.err_3 = "207"
     # E - Error, F - Fatal, I- Information, W - Warning
@@ -42,11 +42,13 @@ class ErrorHandler(AbstractErrorHandler):
             parsed_message = parse_message(self.incoming_message)
             parsed_message.MSH.validate()
             m = Message("ACK")
-            m.msh.msh_9 = "ACK^ACK"
+            message_type = "ACK^%s^ACK" % parsed_message.msh.msh_9.msh_9_2.value
+            m.msh.msh_9 = message_type
             m.msa.msa_1 = "AR"
             m.msa.msa_2 = parsed_message.MSH.MSH_10
             m.msh.msh_10 = parsed_message.msh.msh_10
             m.msh.msh_11 = parsed_message.msh.msh_11
+            m.msh.msh_12 = parsed_message.msh.msh_12.value
 
             m.err.err_3 = "%s" % err_code
             # E - Error, F- Fatal, I- Information, W - Warning
@@ -56,7 +58,7 @@ class ErrorHandler(AbstractErrorHandler):
             assert m.validate()
             return m.to_mllp()
         except Exception as e:
-            logging.warn("Cannot build valid error message.")
+            logging.warning("Cannot build valid error message. %s" % e)
             return last_ditch_error_mssage(e)
 
 
@@ -71,10 +73,9 @@ class AckAllHandler(AbstractHandler):
         try:
             incoming_msg.validate()
             res = Message('ACK')
-            res.msh.msh_9 = "ACK^ACK"
-            # To do, ACK should contain the type of messsage acknowledge
-            # like ACK^A01^ACK for ADT^A01 message
-            # res.msh.msh_9 = message.msh.msh_9.value
+            # Create a message type with the trigger event
+            message_type = "ACK^%s^ACK" % incoming_msg.msh.msh_9.msh_9_2.value
+            res.msh.msh_9 = message_type
 
             res.msh.msh_10 = incoming_msg.msh.msh_10.value
             res.msh.msh_11 = incoming_msg.msh.msh_11.value
@@ -84,6 +85,7 @@ class AckAllHandler(AbstractHandler):
             res.msa.msa_2 = incoming_msg.msh.msh_10.value
             res.msa.msa_3 = "Wow, such message, very valid, Wow!"
 
+            logging.info("replying with %s" % [res.to_mllp()])
             return res.to_mllp()
         except ValidationError:
             raise InvalidHL7Message
